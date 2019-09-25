@@ -4,7 +4,7 @@ import (
 	"flag"
 	"log"
 
-	"github.com/sspencer/gairpc"
+	"github.com/sspencer/airmap"
 )
 
 // expected cli input format for optional bounding box is:
@@ -19,26 +19,26 @@ import (
 
 func main() {
 	// small database of a few local spots
-	gairpc.AddBoundary("la", 33.674069, -118.619385, 34.420505, -117.993164)
-	gairpc.AddBoundary("usa", 26.115986, -124.277344, 26.115986, -124.277344)
-	gairpc.AddBoundary("eu", 36.385913, -12.304688, 71.413177, 42.626953)
+	airmap.AddBoundary("la", 33.674069, -118.619385, 34.420505, -117.993164)
+	airmap.AddBoundary("usa", 26.115986, -124.277344, 26.115986, -124.277344)
+	airmap.AddBoundary("eu", 36.385913, -12.304688, 71.413177, 42.626953)
 
-	bPtr := flag.String("b", "", gairpc.BBoxFormat)
+	bPtr := flag.String("b", "", airmap.BBoxFormat)
 	flag.Parse()
-	bbox, err := gairpc.NewBBox(*bPtr)
+	bbox, err := airmap.NewBBox(*bPtr)
 	if err != nil {
 		log.Fatalf("%v", err)
 	}
 
-	stream, err := gairpc.ConnectAirMap()
+	stream, err := airmap.Connect()
 	if err != nil {
-		log.Fatal("%v", err)
+		log.Fatalf("%v", err)
 	}
 
 	ctx := stream.Context()
 	done := make(chan bool)
 
-	go gairpc.Stream(stream, bbox, done)
+	go airmap.Stream(stream, bbox, done)
 
 	// close done channel if context is done
 	go func() {

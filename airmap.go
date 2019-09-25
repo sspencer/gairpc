@@ -13,7 +13,7 @@ import (
 	"google.golang.org/grpc/credentials"
 )
 
-func ConnectAirMap() (tracking.Collector_ConnectProcessorClient, error) {
+func Connect() (tracking.Collector_ConnectProcessorClient, error) {
 	var err error
 
 	cred := credentials.NewTLS(&tls.Config{})
@@ -34,8 +34,6 @@ func ConnectAirMap() (tracking.Collector_ConnectProcessorClient, error) {
 }
 
 func Stream(stream tracking.Collector_ConnectProcessorClient, bb *BBox, done chan bool) {
-	// read from the stream
-
 	var cnt int64
 	var xavg, yavg, aavg float64
 

@@ -1,4 +1,4 @@
-package gairpc
+package airmap
 
 import (
 	"fmt"
