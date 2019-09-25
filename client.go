@@ -77,7 +77,8 @@ func main() {
 	// read from the stream
 	go func() {
 		var cnt int64
-		var xsum, ysum, asum float64
+		var xavg, yavg, aavg float64
+
 		flightMap := make(map[string]bool)
 		flightCnt := 0
 
@@ -137,16 +138,16 @@ func main() {
 				x := track.GetVelocity().GetCartesian().GetX().GetValue()
 				y := track.GetVelocity().GetCartesian().GetY().GetValue()
 
-				// keep running total for average
-				asum += math.Abs(float64(a))
-				xsum += math.Abs(float64(x))
-				ysum += math.Abs(float64(y))
-
 				cnt++
 
+				// get cumulative moving avg
+				n := float64(cnt)
+				xavg = getCMA(math.Abs(float64(x)), xavg, n)
+				yavg = getCMA(math.Abs(float64(y)), yavg, n)
+				aavg = getCMA(math.Abs(float64(a)), aavg, n)
+
 				if cnt%10 == 0 {
-					log.Printf("Average over %d data points - x:%8.2f, y:%8.2f, alt:%8.2f\n",
-						cnt, xsum/float64(cnt), ysum/float64(cnt), asum/float64(cnt))
+					log.Printf("Average over %d data points - x:%8.2f, y:%8.2f, alt:%8.2f\n", cnt, xavg, yavg, aavg)
 				}
 			}
 		}
@@ -162,6 +163,11 @@ func main() {
 	}()
 
 	<-done
+}
+
+// calculate cumulative moving average
+func getCMA(val, avg, n float64) float64 {
+	return (avg*n + val) / (n + 1.0)
 }
 
 // parse bounding box input from CLI
