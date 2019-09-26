@@ -18,7 +18,7 @@ for convenience, 3 locations are predefined (la, usa, eu)
 
 ## Redis-Like Fun
 
-For fun, integrated a REDIS like interface into the AirMap Client.  After starting the client, open a new terminal and connect with redis-cli.  
+For fun, integrated a [REDIS like interface](https://github.com/tidwall/redcon) into the AirMap Client.  After starting the client, open a new terminal and connect with redis-cli.  
 
 ### Commands
 
