@@ -7,13 +7,38 @@ import (
 	"io"
 	"log"
 	"math"
+	"sync"
 
 	"github.com/airmap/interfaces/src/go/tracking"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 )
 
-func Connect() (tracking.Collector_ConnectProcessorClient, error) {
+type FlightData struct {
+	TrackID   string  `json:"trackId"`
+	XVel      float64 `json:"xvel"`
+	YVel      float64 `json:"yvel"`
+	Altitude  float64 `json:"alt"`
+	Latitude  float64 `json:"latitude"`
+	Longitude float64 `json:"longitude"`
+}
+
+type FlightStats struct {
+	FlightCnt int64   `json:"flightCount"`
+	StatCnt   int64   `json:"statCount"`
+	XVelAvg   float64 `json:"xvelAvg"`
+	YVelAvg   float64 `json:"yvelAvg"`
+	AltAvg    float64 `json:"altAvg"`
+}
+
+type Flights struct {
+	processor   tracking.Collector_ConnectProcessorClient
+	flightStats FlightStats
+	flightMap   map[string]FlightData
+	sync.RWMutex
+}
+
+func Connect() (*Flights, error) {
 	var err error
 
 	cred := credentials.NewTLS(&tls.Config{})
@@ -30,19 +55,26 @@ func Connect() (tracking.Collector_ConnectProcessorClient, error) {
 		return nil, fmt.Errorf("Failed to connect to stream: %v", err)
 	}
 
-	return stream, err
+	f := Flights{}
+	f.processor = stream
+	f.flightMap = make(map[string]FlightData)
+
+	return &f, err
 }
 
-func Stream(stream tracking.Collector_ConnectProcessorClient, bb *BBox, done chan bool) {
-	var cnt int64
-	var xavg, yavg, aavg float64
+func (f *Flights) Context() context.Context {
+	return f.processor.Context()
+}
 
-	flightMap := make(map[string]bool)
-	flightCnt := 0
-
+func (f *Flights) Stream(bb *BBox, done chan bool) {
 	// receive forever
+
+	var statCnt, flightCnt int64
+	var xavg, yavg, aavg float64
+	flightMap := make(map[string]bool)
+
 	for {
-		update, err := stream.Recv()
+		update, err := f.processor.Recv()
 
 		if err == io.EOF {
 			close(done)
@@ -68,6 +100,17 @@ func Stream(stream tracking.Collector_ConnectProcessorClient, bb *BBox, done cha
 				}
 			}
 
+			// get some flight stats
+			pos := track.GetPosition().GetAbsolute()
+			vel := track.GetVelocity().GetCartesian()
+
+			lat := pos.GetCoordinate().GetLatitude().GetValue()
+			lon := pos.GetCoordinate().GetLongitude().GetValue()
+			alt := pos.GetAltitude().GetHeight().GetValue()
+
+			xvel := vel.GetX().GetValue()
+			yvel := vel.GetY().GetValue()
+
 			// flight can be identified in more than 1 way - just look for TrackID
 			ids := track.GetIdentities()
 			trackID := ""
@@ -80,32 +123,50 @@ func Stream(stream tracking.Collector_ConnectProcessorClient, bb *BBox, done cha
 
 			// if a trackID was found, perform Map lookup to see if it's unique
 			if len(trackID) > 0 {
+				fd := FlightData{}
+				fd.TrackID = trackID
+				fd.XVel = xvel
+				fd.YVel = yvel
+				fd.Altitude = alt
+				fd.Latitude = lat
+				fd.Longitude = lon
+
 				if _, ok := flightMap[trackID]; !ok {
 					flightMap[trackID] = true
 					flightCnt++
 					if flightCnt == 1 {
-						log.Println("detected first flight")
+						log.Printf("detected first flight, %s\n", trackID)
 					} else {
-						log.Printf("detected %d flights\n", flightCnt)
+						log.Printf("detected %d flights, %s\n", flightCnt, trackID)
 					}
 				}
+
+				f.Lock()
+				f.flightMap[trackID] = fd
+				f.Unlock()
 			}
 
-			// get some flight stats
-			a := track.GetPosition().GetAbsolute().GetAltitude().GetHeight().GetValue()
-			x := track.GetVelocity().GetCartesian().GetX().GetValue()
-			y := track.GetVelocity().GetCartesian().GetY().GetValue()
-
-			cnt++
+			statCnt++
 
 			// get cumulative moving avg
-			n := float64(cnt)
-			xavg = getCMA(math.Abs(float64(x)), xavg, n)
-			yavg = getCMA(math.Abs(float64(y)), yavg, n)
-			aavg = getCMA(math.Abs(float64(a)), aavg, n)
+			n := float64(statCnt)
+			xavg = getCMA(math.Abs(float64(xvel)), xavg, n)
+			yavg = getCMA(math.Abs(float64(yvel)), yavg, n)
+			aavg = getCMA(math.Abs(float64(alt)), aavg, n)
 
-			if cnt%10 == 0 {
-				log.Printf("Average over %d data points - x:%8.2f, y:%8.2f, alt:%8.2f\n", cnt, xavg, yavg, aavg)
+			fs := FlightStats{}
+			fs.XVelAvg = xavg
+			fs.YVelAvg = yavg
+			fs.AltAvg = aavg
+			fs.StatCnt = statCnt
+			fs.FlightCnt = flightCnt
+
+			f.Lock()
+			f.flightStats = fs
+			f.Unlock()
+
+			if statCnt%10 == 0 {
+				log.Printf("Average over %d data points - x:%8.2f, y:%8.2f, alt:%8.2f\n", statCnt, xavg, yavg, aavg)
 			}
 		}
 	}

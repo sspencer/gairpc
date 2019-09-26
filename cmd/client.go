@@ -30,15 +30,16 @@ func main() {
 		log.Fatalf("%v", err)
 	}
 
-	stream, err := airmap.Connect()
+	flights, err := airmap.Connect()
 	if err != nil {
 		log.Fatalf("%v", err)
 	}
 
-	ctx := stream.Context()
+	ctx := flights.Context()
 	done := make(chan bool)
 
-	go airmap.Stream(stream, bbox, done)
+	go flights.Stream(bbox, done)
+	go flights.Redislike(":6060")
 
 	// close done channel if context is done
 	go func() {
