@@ -30,9 +30,9 @@ For fun, integrated a REDIS like interface into the AirMap Client.  After starti
 
     $ redis-cli -p 6060
     127.0.0.1:6060> get N341SP-599
-"{\"trackId\":\"N341SP-599\",\"xvel\":-80,\"yvel\":26,\"alt\":1828.8000000000002,\"latitude\":33.86285,\"longitude\":-118.27153}"
+    "{\"trackId\":\"N341SP-599\",\"xvel\":-80,\"yvel\":26,\"alt\":1828.8000000000002,\"latitude\":33.86285,\"longitude\":-118.27153}"
     127.0.0.1:6060> stats
-"{\"flightCount\":33,\"statCount\":59,\"xvelAvg\":82.18333333333334,\"yvelAvg\":66.38333333333334,\"altAvg\":1132.1330000000003}"
+    "{\"flightCount\":33,\"statCount\":59,\"xvelAvg\":82.18333333333334,\"yvelAvg\":66.38333333333334,\"altAvg\":1132.1330000000003}"
     127.0.0.1:6060> flights
      1) "N665PD-1569520683-adhoc-0"
      2) "N341SP-599"
